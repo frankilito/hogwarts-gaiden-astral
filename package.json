@@ -1,0 +1,15 @@
+{
+  "name": "hogwarts-gaiden-astral",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "3D 魔法学院同人 RPG《霍格沃茨之遗·星轨篇》",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node tools/logictest.mjs",
+    "shot": "node tools/shoot.mjs shot /tmp/hgw.png"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.3.0",
+    "ws": "^8.21.0"
+  }
+}

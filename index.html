@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>霍格沃茨之遗·星轨篇 | 魔法学院生活 RPG</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js",
+    "three/addons/": "./vendor/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<!-- 载入页 -->
+<div id="loading" class="screen">
+  <div class="load-inner">
+    <div class="load-crest">✦</div>
+    <h1>霍格沃茨之遗 · 星轨篇</h1>
+    <p class="sub">同人魔法学院生活 RPG</p>
+    <div class="bar"><div id="loadbar"></div></div>
+    <p id="loadtext">召唤古老的城堡…</p>
+  </div>
+</div>
+
+<!-- 标题页 -->
+<div id="title" class="screen hidden">
+  <div class="title-inner">
+    <h1 class="game-title">霍格沃茨之遗<span>星轨篇</span></h1>
+    <p class="tag">星轨异动之夜，密室的封印正在苏醒</p>
+    <div class="menu">
+      <button id="btn-new" class="mbtn">✦ 新的学年</button>
+      <button id="btn-continue" class="mbtn">☾ 继续冒险</button>
+      <button id="btn-net" class="mbtn">✧ 联机大厅</button>
+    </div>
+    <p class="foot">KayKit CC0 美术 · Three.js · 同人作品，与原作版权方无关</p>
+  </div>
+</div>
+
+<!-- 角色创建 -->
+<div id="charcreate" class="screen hidden">
+  <div class="cc-panel">
+    <h2>创建你的学徒</h2>
+    <div class="cc-row"><label>姓名</label><input id="cc-name" maxlength="8" value="星见"></div>
+    <div class="cc-row"><label>外观</label><div id="cc-models" class="cc-opts"></div></div>
+    <div class="cc-row"><label>学院</label><div id="cc-houses" class="cc-opts"></div></div>
+    <div class="cc-row"><label>专长</label><div id="cc-talents" class="cc-opts"></div></div>
+    <div class="cc-row"><label>性格</label><div id="cc-traits" class="cc-opts"></div></div>
+    <p id="cc-desc" class="cc-desc"></p>
+    <button id="cc-done" class="mbtn">戴上分院帽 ✦</button>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="hud-top">
+    <div id="hud-clock"><span id="clock-day">第1天</span><span id="clock-time">08:00</span><span id="clock-phase">清晨</span></div>
+    <div id="hud-house"><span id="house-name"></span> <span id="house-points">0</span>分 · <span id="gold">0</span>🌙</div>
+  </div>
+  <div id="hud-bars">
+    <div class="bar hp"><div id="bar-hp"></div><span>体力</span></div>
+    <div class="bar mp"><div id="bar-mp"></div><span>魔力</span></div>
+    <div class="bar xp"><div id="bar-xp"></div><span id="lvl-text">Lv.1</span></div>
+  </div>
+  <div id="spellbar"></div>
+  <div id="hud-quest"><b id="q-title"></b><span id="q-step"></span></div>
+  <div id="interact-tip" class="hidden"><kbd>E</kbd> <span id="tip-text"></span></div>
+  <div id="crosshair" class="hidden">✛</div>
+  <div id="minimap"><canvas id="minimap-cv" width="180" height="180"></canvas><div id="minimap-label"></div></div>
+  <div id="duel-hud" class="hidden"><div class="foe-name" id="foe-name"></div><div class="bar foe"><div id="bar-foe"></div></div></div>
+</div>
+
+<!-- 对话框 -->
+<div id="dialog" class="hidden">
+  <div id="dlg-portrait"><canvas id="dlg-face" width="140" height="140"></canvas></div>
+  <div id="dlg-main">
+    <div id="dlg-name"></div>
+    <div id="dlg-text"></div>
+    <div id="dlg-choices"></div>
+    <div id="dlg-next">▼ 空格继续</div>
+  </div>
+</div>
+
+<!-- 菜单(J) -->
+<div id="journal" class="screen hidden">
+  <div class="j-panel">
+    <div class="j-tabs">
+      <button data-tab="quests" class="jt active">任务</button>
+      <button data-tab="schedule" class="jt">日程</button>
+      <button data-tab="bag" class="jt">背包</button>
+      <button data-tab="skills" class="jt">技能树</button>
+      <button data-tab="friends" class="jt">关系</button>
+      <button data-tab="scores" class="jt">学业</button>
+      <button data-tab="system" class="jt">系统</button>
+    </div>
+    <div id="j-body"></div>
+    <button id="j-close" class="x">✕</button>
+  </div>
+</div>
+
+<!-- 课堂/小游戏浮层 -->
+<div id="minigame" class="screen hidden"><div id="mg-body"></div></div>
+
+<!-- 联机面板 -->
+<div id="netpanel" class="screen hidden">
+  <div class="j-panel small">
+    <h2>联机大厅</h2>
+    <p class="net-hint">同一房号即可相遇。线上用 P2P（PeerJS），本地双开自动走局域网中继。</p>
+    <div class="cc-row"><label>房号</label><input id="net-room" maxlength="6" placeholder="如 STAR01"></div>
+    <div class="cc-row"><label>模式</label>
+      <div class="cc-opts">
+        <button class="opt netmode active" data-m="visit">🏠 参观宿舍</button>
+        <button class="opt netmode" data-m="duel">⚔️ 好友决斗</button>
+        <button class="opt netmode" data-m="coop">🗝 共探密室</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="net-host" class="mbtn">创建房间</button>
+      <button id="net-join" class="mbtn">加入房间</button>
+    </div>
+    <p id="net-status"></p>
+    <button id="net-close" class="x">✕</button>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<div id="fader"></div>
+<div id="cinematic-bars" class="hidden"><div class="cb top"></div><div class="cb bot"></div></div>
+<div id="center-title" class="hidden"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
