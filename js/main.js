@@ -238,10 +238,10 @@ class Game {
     this._setActiveZone(zoneId);
     const z = this.zone;
     const sp = z.spots[spotName] || z.spots.spawn || V3(0, 0, 0);
-    // 面向房间中心出生
+    // 面向房间中心出生（或区域指定朝向）
     const [bx1, bz1, bx2, bz2] = z.bounds;
     const cx = (bx1 + bx2) / 2, cz = (bz1 + bz2) / 2;
-    const yaw = Math.atan2(cx - sp.x, cz - sp.z);
+    const yaw = z.spawnYaw ?? Math.atan2(cx - sp.x, cz - sp.z);
     this.player?.teleport(sp.x, sp.z);
     if (this.player) { this.player.camYaw = yaw; this.player.actor.root.rotation.y = yaw; this.player.actor.targetRotY = yaw; }
     if (this.state === 'play') {

@@ -337,7 +337,7 @@ export class Player {
       Math.sin(this.camYaw + Math.PI) * Math.cos(this.camPitch),
       Math.sin(this.camPitch),
       Math.cos(this.camYaw + Math.PI) * Math.cos(this.camPitch),
-    ).multiplyScalar(this.aimMode ? 2.6 : this.camDist);
+    ).multiplyScalar(this.aimMode ? 2.6 : (this.g.zone?.camDist || this.camDist));
     const goal = target.clone().add(off);
     // 相机不出房间、不穿天花板：沿视线向角色滑入直到合法
     const z = this.g.zone;

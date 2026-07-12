@@ -390,12 +390,12 @@ export class SkyRig {
   setWeather(w, zone) {
     this.weather = w;
     if (w === 'rain' && !this.rain) {
-      const N = 1600;
+      const N = 2200;
       const geo = new THREE.BufferGeometry();
       const pos = new Float32Array(N * 3);
       for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 80; pos[i * 3 + 1] = Math.random() * 30; pos[i * 3 + 2] = (Math.random() - 0.5) * 80; }
       geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      this.rain = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x9db8d8, size: 0.06, transparent: true, opacity: 0.55 }));
+      this.rain = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xbdd4ee, size: 0.12, transparent: true, opacity: 0.75 }));
       this.rain.frustumCulled = false;
       this.scene.add(this.rain);
     }

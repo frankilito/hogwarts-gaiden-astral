@@ -93,6 +93,9 @@ export class Net {
   _wireConn(c, channel) {
     this.conn = c; this.channel = channel;
     this.connected = true;
+    // 后台标签页 RAF 停摆时仍保持心跳同步
+    clearInterval(this._bgTick);
+    this._bgTick = setInterval(() => { if (document.hidden) this.update(0.12, performance.now() / 1000); }, 120);
     const onData = (d) => {
       let msg = d;
       if (typeof d === 'string') { try { msg = JSON.parse(d); } catch { return; } }
@@ -124,6 +127,7 @@ export class Net {
     this.send({ t: 'hello', name: gs.name, model: gs.model, house: gs.house, mode: this.mode, decor: gs.dorm });
   }
   async _onMsg(m) {
+    (window.__netlog ||= []).push(m.t);
     const g = this.g;
     switch (m.t) {
       case 'joined': break;

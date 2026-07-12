@@ -755,6 +755,8 @@ export function installGameflow(g) {
     }
     // 返回入口
     z.spot('spawn', D.entry[0] * S, 0, D.entry[1] * S);
+    z.camDist = 3.6;
+    z.spawnYaw = D.g[D.entry[1]][D.entry[0] + 1] === 0 ? Math.PI / 2 : 0; // 沿开口走廊
     z.portal(D.entry[0] * S, D.entry[1] * S - 3, '返回密室入口', 'chamber', 'spawn', null, 2);
     z.fogColor = 0x080a14;
     z.fogDensity = 0.05;
