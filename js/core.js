@@ -18,14 +18,14 @@ export class Engine {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.32;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a0d18);
     this.camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 300);
     this.camera.position.set(0, 3, 8);
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.85, 0.82);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.72, 0.9, 0.72);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     addEventListener('resize', () => {
@@ -56,10 +56,20 @@ export class AssetLib {
     return gltf;
   }
   async loadChar(model) { return this.load(PACK_DIR.chars + model + '.glb'); }
-  // 场景件：克隆网格，开启阴影
+  // 场景件：克隆网格，开启阴影（自动解析 .gltf/.glb/.gltf.glb 命名差异）
   async prop(pack, name, { shadow = true, recv = true } = {}) {
-    const base = name.endsWith('.gltf') || name.endsWith('.glb') ? name : name + (pack === 'dungeon' ? '.gltf.glb' : '.gltf');
-    const gltf = await this.load(PACK_DIR[pack] + base);
+    const dir = PACK_DIR[pack];
+    let candidates;
+    if (name.endsWith('.gltf') && pack === 'dungeon') candidates = [name + '.glb', name];
+    else if (name.endsWith('.gltf') || name.endsWith('.glb')) candidates = [name];
+    else if (pack === 'dungeon') candidates = [name + '.gltf.glb', name + '.glb', name + '.gltf'];
+    else candidates = [name + '.gltf', name + '.glb'];
+    let gltf = null, lastErr = null;
+    for (const c of candidates) {
+      try { gltf = await this.load(dir + c); break; }
+      catch (e) { lastErr = e; this.cache.delete(dir + c); }
+    }
+    if (!gltf) throw lastErr || new Error('prop not found: ' + pack + '/' + name);
     const obj = gltf.scene.clone(true);
     obj.traverse(o => { if (o.isMesh) { o.castShadow = shadow; o.receiveShadow = recv; } });
     return obj;

@@ -149,7 +149,14 @@ export async function buildZones(B, lib, candleRig) {
   // ============ 大厅 ============
   {
     const z = new Zone('hall', '星辉大厅', { bounds: [-19, -13, 19, 13], fog: 0x141020, fogD: 0.010 });
-    await B.room(z, 0, 0, 10, 7, { windows: 'wall_archedwindow_open', doorSides: [{ side: 'n', at: 5 }, { side: 's', at: 5 }], winEvery: 2 });
+    const info = await B.room(z, 0, 0, 10, 7, { windows: 'wall_archedwindow_open', doorSides: [{ side: 'n', at: 5 }, { side: 's', at: 5 }], winEvery: 2, ceiling: 'none', stack: 2 });
+    // 壁挂火把
+    for (const tx of [-10, -2, 6, 14]) {
+      await B.place(z, 'dungeon', 'torch_mounted', tx, 2.4, -13.7, 0);
+      await B.place(z, 'dungeon', 'torch_mounted', tx - 4, 2.4, 13.7, PI);
+      candleRig.addSpot('hall', tx, 2.9, -12.9, 1.8);
+      candleRig.addSpot('hall', tx - 4, 2.9, 12.9, 1.8);
+    }
     // 两列长桌 + 食物
     for (const [tx, tz] of [[-8, -5], [-8, 5], [8, -5], [8, 5]]) {
       for (let i = 0; i < 3; i++) {
@@ -183,23 +190,24 @@ export async function buildZones(B, lib, candleRig) {
       fragmentShader: `uniform float t; uniform float night; varying vec2 vUv;
         float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
         void main(){
-          vec3 col = mix(vec3(.10,.12,.24), vec3(.02,.03,.10), night);
+          vec3 dayCol = mix(vec3(.40,.50,.78), vec3(.55,.62,.85), vUv.y);
+          vec3 col = mix(dayCol, vec3(.02,.03,.10), night);
           vec2 g = vUv*44.0;
           vec2 id = floor(g);
           float h = hash(id);
           float star = step(.965,h) * (0.5+0.5*sin(t*(1.+h*3.)+h*40.));
-          col += star * vec3(1.,.95,.8) * (0.4+night*0.8);
-          float neb = hash(floor(vUv*7.0))*0.06;
+          col += star * vec3(1.,.95,.8) * night;
+          float neb = hash(floor(vUv*7.0))*0.08*night;
           col += vec3(neb*.4, neb*.3, neb);
-          gl_FragColor = vec4(col, .96);
+          gl_FragColor = vec4(col, .97);
         }`,
     }));
-    sky.rotation.x = PI / 2; sky.position.y = 7.6;
+    sky.rotation.x = PI / 2; sky.position.y = info.topY - 0.2;
     z.add(sky);
     z.skyMat = sky.material;
     z.update((t) => { sky.material.uniforms.t.value = t; });
     // 漂浮蜡烛 + 尘埃 + 光柱
-    const fc = floatingCandles(26, [-16, -10, 16, 10], 5.2); z.add(fc); z.update((t) => fc.userData.update(t));
+    const fc = floatingCandles(26, [-16, -10, 16, 10], info.topY - 2.6); z.add(fc); z.update((t) => fc.userData.update(t));
     const dm = dustMotes(120, [-18, -12, 18, 12]); z.add(dm); z.update((t) => dm.userData.update(t));
     for (const gx of [-10, -2, 6, 14]) { const r = godRay(gx, 4.6, -11, 0); z.add(r); z.update((t) => r.userData.update(t)); }
     // 画像
@@ -214,7 +222,7 @@ export async function buildZones(B, lib, candleRig) {
     await B.place(z, 'restaurant', 'crate_cheese', 17.4, 0, -9.8, 0.9);
     z.interact(16.3, -10.5, '取用烤肉腿', 'kitchen_grab');
     // 锚点
-    z.spot('spawn', 0, 0, 10.5);
+    z.spot('spawn', 0, 0, 8);
     z.spot('sort', 0, 0, -2);
     z.spot('teach', -15, 0.5, 2.5);
     z.spot('idle1', -8, 0, -6.5); z.spot('idle2', 8, 0, 6.5); z.spot('idle3', 4, 0, -6.5); z.spot('idle4', -4, 0, 6.5);
@@ -228,7 +236,7 @@ export async function buildZones(B, lib, candleRig) {
   // ============ 旋转楼梯厅 ============
   {
     const z = new Zone('stair', '旋转楼梯厅', { bounds: [-13, -13, 13, 13], fog: 0x10121f, fogD: 0.012 });
-    await B.room(z, 0, 0, 7, 7, { windows: 'wall_archedwindow_open', doorSides: [{ side: 'n', at: 3 }, { side: 's', at: 3 }, { side: 'w', at: 3 }, { side: 'e', at: 3 }], winEvery: 3 });
+    await B.room(z, 0, 0, 7, 7, { windows: 'wall_archedwindow_open', doorSides: [{ side: 'n', at: 3 }, { side: 's', at: 3 }, { side: 'w', at: 3 }, { side: 'e', at: 3 }], winEvery: 3, stack: 3 });
     // 中央旋转双梯
     const stairs = [];
     for (let k = 0; k < 2; k++) {
@@ -261,9 +269,9 @@ export async function buildZones(B, lib, candleRig) {
     }
     const dm = dustMotes(70, [-12, -12, 12, 12], [0.5, 9]); z.add(dm); z.update((t) => dm.userData.update(t));
     const gr = godRay(-9, 5, 0, PI / 2, 9); z.add(gr); z.update((t) => gr.userData.update(t));
-    z.spot('spawn', 0, 0, 9);
-    z.spot('fromHall', 0, 0, 11.5);
-    z.spot('fromYard', 0, 0, -11.5);
+    z.spot('spawn', 0, 0, 7);
+    z.spot('fromHall', 0, 0, 9);
+    z.spot('fromYard', 0, 0, -9);
     z.spot('teach', -6, 0, 5);
     z.spot('idle1', 7, 0, 7); z.spot('idle2', -7, 0, -7); z.spot('idle3', 8, 0, -4); z.spot('idle4', -8, 0, 4);
     z.spot('ghost', -4, 0, -9);
@@ -322,7 +330,7 @@ export async function buildZones(B, lib, candleRig) {
       p.position.set(-2 + i * 6, 3.2, 11.6); p.rotation.y = PI;
       z.add(p); (z.portraitList = z.portraitList || []).push(p);
     }
-    z.spot('spawn', 13, 0, 0);
+    z.spot('spawn', 10, 0, 0);
     z.spot('ghost', 7, 0, 1);
     z.spot('idle1', 7, 0, -2); z.spot('idle2', 7, 0, 3); z.spot('idle3', -2, 0, -4); z.spot('idle4', 1, 0, 1);
     z.spot('teach', 5, 0, -8);
@@ -358,7 +366,7 @@ export async function buildZones(B, lib, candleRig) {
     z.blockRect(-1.4, 6.2, 1.4, 7.8);
     const gl = new THREE.PointLight(0x54e0a0, 0.9, 10); gl.position.set(0, 2.5, 0); z.add(gl);
     const dm = dustMotes(60, [-12, -8, 12, 8], [0.4, 4]); z.add(dm); z.update((t) => dm.userData.update(t));
-    z.spot('spawn', 0, 0, -7.5);
+    z.spot('spawn', 0, 0, -5.2);
     z.spot('teach', 0, 0, 5.8);
     z.spot('idle1', -7, 0, 2.2); z.spot('idle2', 7, 0, 2.2); z.spot('idle3', -7, 0, -2.2); z.spot('idle4', 0, 0, -2.2);
     z.portal(0, -8.6, '回楼梯厅', 'stair', 'spawn');
@@ -391,7 +399,7 @@ export async function buildZones(B, lib, candleRig) {
     z.interact(9.5, 4.8, '睡觉（进入下一天）', 'sleep', null, 2.4);
     z.interact(5.5, 6.5, '布置宿舍（装饰模式）', 'decor', null, 2.6);
     z.decorAnchor = V3(2, 0, 4); // 摆放家具的原点
-    z.spot('spawn', 0, 0, 7.5);
+    z.spot('spawn', 0, 0, 5.2);
     z.spot('idle1', -2.5, 0, -4.8); z.spot('idle2', 2.6, 0, -5); z.spot('idle3', -8, 0, 0); z.spot('idle4', 6, 0, -2);
     z.spot('seat1', -2.5, 0, -5.3); z.spot('seat2', 2.6, 0, -5.4);
     z.portal(0, 8.6, '回楼梯厅', 'stair', 'spawn');
@@ -442,7 +450,7 @@ export async function buildZones(B, lib, candleRig) {
     z.blockRect(-1.6, 7.6, 1.6, 8.8);
     z.interact(0, 6.9, '打水（浇灌植物）', 'water');
     const dm = dustMotes(50, [-11, -8, 11, 8], [0.5, 4]); z.add(dm); z.update((t) => dm.userData.update(t));
-    z.spot('spawn', 0, 0, -7.5);
+    z.spot('spawn', 0, 0, -5.5);
     z.spot('teach', 0, 0, 0);
     z.spot('idle1', -8, 0, 0); z.spot('idle2', 8, 0, 0); z.spot('idle3', -4, 0, 5); z.spot('idle4', 4, 0, -5);
     z.portal(0, -8.8, '出温室（往庭院）', 'yard', 'fromGreen');
@@ -479,7 +487,7 @@ export async function buildZones(B, lib, candleRig) {
     circle.rotation.x = -PI / 2; circle.position.y = 0.03; z.add(circle);
     z.sealCircle = circle;
     z.interact(0, -3.4, '封印仪式', 'ritual', null, 2.4);
-    z.spot('spawn', -7, 0, 6);
+    z.spot('spawn', -5.5, 0, 4.5);
     z.spot('teach', 3, 0, 2.5);
     z.spot('idle1', -4, 0, -4); z.spot('idle2', 4, 0, 4); z.spot('idle3', -5, 0, 2); z.spot('idle4', 0, 0, -5);
     z.spot('ghost', 6, 0, 3);
@@ -542,8 +550,8 @@ export async function buildZones(B, lib, candleRig) {
     const well = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, 1, 10, 1, true), MAT.stone);
     well.position.set(-2, 0.5, 10); z.add(well); z.block(-2, 10, 1.4);
     z.spot('spawn', 0, 0, 0);
-    z.spot('fromHall', 0, 0, -12.5);
-    z.spot('fromGreen', -14.5, 0, 11);
+    z.spot('fromHall', 0, 0, -10.5);
+    z.spot('fromGreen', -13, 0, 10);
     z.spot('teach', -5, 0, -7);
     z.spot('idle1', 7, 0, 5); z.spot('idle2', -10, 0, 5); z.spot('idle3', 3, 0, 10); z.spot('idle4', 10, 0, -5);
     z.portal(0, -13.6, '回星辉大厅', 'hall', 'spawn');
@@ -609,7 +617,7 @@ export async function buildZones(B, lib, candleRig) {
     const moonlight = new THREE.SpotLight(0x8fa8e8, 2.2, 40, 0.5, 0.6);
     moonlight.position.set(6, 18, 2); moonlight.target.position.set(0, 0, 0);
     z.add(moonlight, moonlight.target);
-    z.spot('spawn', 0, 0, 15);
+    z.spot('spawn', 0, 0, 12.5);
     z.spot('idle1', -4, 0, 4);
     z.portal(0, 16.4, '返回庭院', 'yard', 'spawn', null, 2.6);
     Z.forest = z;
@@ -639,7 +647,7 @@ export async function buildZones(B, lib, candleRig) {
     }
     const gl = new THREE.PointLight(0x54e0a0, 0.7, 14); gl.position.set(0, 2, -6); z.add(gl);
     const dm = dustMotes(80, [-10, -12, 10, 8], [0.3, 4]); z.add(dm); z.update((t) => dm.userData.update(t));
-    z.spot('spawn', 0, 0, 7.5);
+    z.spot('spawn', 0, 0, 5);
     z.spot('ghost', -5, 0, -6);
     z.spot('idle1', 4, 0, -4);
     z.portal(0, 8.6, '回楼梯厅', 'stair', 'spawn');

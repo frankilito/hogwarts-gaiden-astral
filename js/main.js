@@ -72,6 +72,24 @@ class Game {
     window.__game = this;
     requestAnimationFrame(this._loop.bind(this));
     if (Q.has('autotest')) setTimeout(() => this.autotest().catch(e => { console.log('TEST FATAL ' + e.message); window.__testDone = true; window.__testSummary = 'FATAL ' + e.message; }), 400);
+    else if (Q.has('scene')) setTimeout(() => this.debugScene(Q.get('scene'), Q.get('hour'), Q.get('extra')), 200);
+  }
+  // 调试直达场景：?scene=hall&hour=21&extra=duel|skels|rain|companion|decor
+  async debugScene(zone, hour, extra) {
+    this.gs = L.newGameState({ name: '巡视员', model: 'Mage', house: 'lion' });
+    this.gs.knownSpells = ['bolt', 'fire', 'ice', 'arc', 'beam', 'shield', 'levit', 'morph', 'portal'];
+    this.gs.flags.chamberOpen = 1;
+    if (hour != null) this.gs.hour = parseInt(hour, 10) || 12;
+    this.derived = L.derivedStats(this.gs);
+    this.talentMod = {};
+    this.ui.hide('title');
+    await this.player.init(this.lib, this.gs);
+    await this._enterPlay(zone || 'hall', 'spawn');
+    if (extra === 'duel') await this.duel.start('vera', {});
+    if (extra === 'skels') { await this.combat.spawnEnemy('skel_guard', this.player.pos.x + 4, this.player.pos.z + 2); await this.combat.spawnEnemy('skel_mage', this.player.pos.x - 4, this.player.pos.z + 3); }
+    if (extra === 'rain') { this.gs.flags.weather = 'rain'; this.sky.setWeather('rain', this.zone); }
+    if (extra === 'companion') { this.gs.affinity.lila = 80; await this.companion.set('lila'); }
+    if (extra === 'fx') { setInterval(() => { this.combat.cast(['bolt', 'fire', 'ice', 'arc'][Math.floor(Math.random() * 4)]); }, 800); }
   }
 
   // ---------- 标题 ----------
@@ -209,17 +227,23 @@ class Game {
   }
   async switchZone(zoneId, spotName = 'spawn', instant = false) {
     if (!instant) await this.ui.fade(true, 420);
+    const prevZone = this.zoneId;
+    // 离开战斗区域先清场
+    if (prevZone && prevZone !== zoneId && ['dungeon', 'greenhouse', 'yard', 'forest'].includes(prevZone)) this.combat.clearEnemies();
     // 迷宫动态建造
-    if (zoneId === 'dungeon' && this.zoneId !== 'dungeon') {
+    if (zoneId === 'dungeon' && prevZone !== 'dungeon') {
       this.gs.stats.dungeonFloor = 1;
       await this.buildDungeonFloor(1);
     }
-    if (this.zoneId === 'dungeon' && zoneId !== 'dungeon') this.combat.clearEnemies();
-    if (this.zoneId === 'greenhouse' && zoneId !== 'greenhouse') this.combat.clearEnemies();
     this._setActiveZone(zoneId);
     const z = this.zone;
     const sp = z.spots[spotName] || z.spots.spawn || V3(0, 0, 0);
+    // 面向房间中心出生
+    const [bx1, bz1, bx2, bz2] = z.bounds;
+    const cx = (bx1 + bx2) / 2, cz = (bz1 + bz2) / 2;
+    const yaw = Math.atan2(cx - sp.x, cz - sp.z);
     this.player?.teleport(sp.x, sp.z);
+    if (this.player) { this.player.camYaw = yaw; this.player.actor.root.rotation.y = yaw; this.player.actor.targetRotY = yaw; }
     if (this.state === 'play') {
       await this.npcs.spawnForZone(zoneId);
       if (zoneId === 'greenhouse') this.rebuildPlots();
@@ -457,11 +481,11 @@ class Game {
     this._last = now;
     // 标题模式：环绕镜头
     if (this.state === 'title' || this.state === 'create') {
-      this._titleCam.t += dt * 0.08;
+      this._titleCam.t += dt * 0.07;
       const a = this._titleCam.t;
-      this.engine.camera.position.set(Math.sin(a) * 16, 6 + Math.sin(a * 0.7) * 2, Math.cos(a) * 16);
-      this.engine.camera.lookAt(0, 2, 0);
-      this.sky.apply(21.5, this.zone, null);
+      this.engine.camera.position.set(Math.sin(a) * 17, 6.5 + Math.sin(a * 0.7) * 1.5, Math.cos(a) * 17);
+      this.engine.camera.lookAt(0, 3.5, 0);
+      this.sky.apply(20.1, this.zone, null);
       if (this.zone) for (const fn of this.zone.updaters) fn(t, dt);
       if (this._preview) {
         this._preview.update(dt, t);

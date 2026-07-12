@@ -853,7 +853,7 @@ export function installGameflow(g) {
       page.position.set(x, 0.5, zpos);
       page.rotation.x = -Math.PI / 3;
       z.group.add(page);
-      z.updaters.push((t) => { page.position.y = 0.5 + Math.sin(t * 2 + i) * 0.15; page.rotation.z = Math.sin(t + i) * 0.3; page.visible = !!(g.gs.quests.sq_ghost && !g.gs.quests.sq_ghost.done && !g.gs.flags['page_' + i]); });
+      z.updaters.push((t) => { page.position.y = 0.5 + Math.sin(t * 2 + i) * 0.15; page.rotation.z = Math.sin(t + i) * 0.3; page.visible = !!(g.gs && g.gs.quests.sq_ghost && !g.gs.quests.sq_ghost.done && !g.gs.flags['page_' + i]); });
       z.interact(x, zpos, '拾起发光的书页', 'page_pick', i, 1.8);
       g.pageMeshes.push(page);
     });
@@ -862,7 +862,7 @@ export function installGameflow(g) {
     p.position.set(10, 0, 10);
     ZONES.yard.group.add(p);
     g.catPumpkin = p;
-    ZONES.yard.updaters.push(() => { p.visible = !!(g.gs.quests.sq_rou && !g.gs.quests.sq_rou.done); });
+    ZONES.yard.updaters.push(() => { p.visible = !!(g.gs && g.gs.quests.sq_rou && !g.gs.quests.sq_rou.done); });
     ZONES.yard.interact(10, 10, '一个格外可疑的南瓜（变形术 G）', 'cat_pumpkin', null, 2);
   };
 

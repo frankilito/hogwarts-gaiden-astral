@@ -222,7 +222,7 @@ export class Player {
     this.actor = new Actor();
     this.pos = new THREE.Vector3(0, 0, 8);
     this.vel = new THREE.Vector3();
-    this.yaw = 0; this.camYaw = 0; this.camPitch = 0.32; this.camDist = 5.2;
+    this.yaw = 0; this.camYaw = 0; this.camPitch = 0.3; this.camDist = 6.6;
     this.moving = false; this.running = false;
     this.dodgeT = 0; this.castLock = 0;
     this.sitting = null;
@@ -332,6 +332,20 @@ export class Player {
       Math.cos(this.camYaw + Math.PI) * Math.cos(this.camPitch),
     ).multiplyScalar(this.aimMode ? 2.6 : this.camDist);
     const goal = target.clone().add(off);
+    // 相机不出房间、不穿天花板：沿视线向角色滑入直到合法
+    const z = this.g.zone;
+    if (z) {
+      const [x1, z1, x2, z2] = z.bounds;
+      const inside = (p) => p.x > x1 + 0.35 && p.x < x2 - 0.35 && p.z > z1 + 0.35 && p.z < z2 - 0.35 && p.y > 0.5 && (!z.ceilY || p.y < z.ceilY);
+      if (!inside(goal)) {
+        const seg = goal.clone().sub(target);
+        for (let t = 0.94; t >= 0.22; t -= 0.06) {
+          const p = target.clone().addScaledVector(seg, t);
+          if (inside(p)) { goal.copy(p); break; }
+          if (t <= 0.25) goal.copy(target.clone().addScaledVector(seg, 0.25));
+        }
+      }
+    }
     cam.position.lerp(goal, Math.min(1, dt * 9));
     const look = this.aimMode ? target.clone().add(new THREE.Vector3(Math.sin(this.camYaw), 0.1 + (0.5 - this.camPitch) * 0.5, Math.cos(this.camYaw)).multiplyScalar(6)) : target;
     cam.lookAt(look);

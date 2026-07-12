@@ -17,13 +17,13 @@ function canvasTex(draw, w = 256, h = 256, rep = 1) {
 export const TEX = {};
 function initTextures() {
   TEX.stone = canvasTex((c, w, h) => {
-    c.fillStyle = '#5a5a66'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#8f8f9c'; c.fillRect(0, 0, w, h);
     for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
       const off = (y % 2) * 32;
-      const g = 78 + Math.random() * 26;
-      c.fillStyle = `rgb(${g},${g},${g + 8})`;
+      const g = 128 + Math.random() * 38;
+      c.fillStyle = `rgb(${g},${g},${g + 10})`;
       c.fillRect(x * 64 + off + 2, y * 64 + 2, 60, 60);
-      c.fillStyle = 'rgba(0,0,0,.25)';
+      c.fillStyle = 'rgba(0,0,0,.22)';
       c.fillRect(x * 64 + off + 2, y * 64 + 58, 60, 4);
     }
   }, 256, 256, 3);
@@ -46,7 +46,7 @@ function initTextures() {
 export const MAT = {};
 function initMaterials() {
   MAT.stone = new THREE.MeshStandardMaterial({ map: TEX.stone, roughness: 0.95 });
-  MAT.stoneDark = new THREE.MeshStandardMaterial({ map: TEX.stone, color: 0x777788, roughness: 0.95 });
+  MAT.stoneDark = new THREE.MeshStandardMaterial({ map: TEX.stone, color: 0xb0b2c4, roughness: 0.95 });
   MAT.wood = new THREE.MeshStandardMaterial({ map: TEX.wood, roughness: 0.8 });
   MAT.glass = new THREE.MeshPhysicalMaterial({ color: 0xbfd8e8, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide });
   MAT.gold = new THREE.MeshStandardMaterial({ color: 0xd8b45a, roughness: 0.3, metalness: 0.85 });
@@ -121,8 +121,8 @@ export class Builder {
     zone.add(o);
     return o;
   }
-  // 方形石室：w×d 格墙，带窗/门洞
-  async room(zone, gx, gz, w, d, { y = 0, windows = 'wall_archedwindow_open', plain = 'wall', doorSides = [], floorTile = 'floor_tile_large', winEvery = 2, corners = true } = {}) {
+  // 方形石室：w×d 格墙，带窗/门洞；stack 层数；ceiling: 'stone'|'none'
+  async room(zone, gx, gz, w, d, { y = 0, windows = 'wall_archedwindow_open', plain = 'wall', doorSides = [], floorTile = 'floor_tile_large', winEvery = 2, corners = true, stack = 2, ceiling = 'stone' } = {}) {
     const S = this.wallSize;
     const x0 = gx - w * S / 2, z0 = gz - d * S / 2;
     // 地板
@@ -141,15 +141,27 @@ export class Builder {
         const doorHere = doorSides.find(ds => ds.side === s.dir && (ds.at === i || ds.at === undefined && i === Math.floor(s.len / 2)));
         const name = doorHere ? 'wall_doorway' : (i % winEvery === 1 ? windows : plain);
         await this.place(zone, 'dungeon', name, s.ox + s.dx * i, y, s.oz + s.dz * i, s.ry);
+        for (let lv = 1; lv < stack; lv++) {
+          await this.place(zone, 'dungeon', i % 3 === 2 ? 'wall_cracked' : 'wall', s.ox + s.dx * i, y + this.wallH * lv, s.oz + s.dz * i, s.ry, 1, { shadow: false });
+        }
       }
     }
     if (corners) {
-      await this.place(zone, 'dungeon', 'wall_corner', x0, y, z0, 0);
-      await this.place(zone, 'dungeon', 'wall_corner', x0 + w * S, y, z0, Math.PI / 2 * 3);
-      await this.place(zone, 'dungeon', 'wall_corner', x0, y, z0 + d * S, Math.PI / 2);
-      await this.place(zone, 'dungeon', 'wall_corner', x0 + w * S, y, z0 + d * S, Math.PI);
+      for (let lv = 0; lv < stack; lv++) {
+        await this.place(zone, 'dungeon', 'wall_corner', x0, y + this.wallH * lv, z0, 0);
+        await this.place(zone, 'dungeon', 'wall_corner', x0 + w * S, y + this.wallH * lv, z0, Math.PI / 2 * 3);
+        await this.place(zone, 'dungeon', 'wall_corner', x0, y + this.wallH * lv, z0 + d * S, Math.PI / 2);
+        await this.place(zone, 'dungeon', 'wall_corner', x0 + w * S, y + this.wallH * lv, z0 + d * S, Math.PI);
+      }
     }
-    return { x0, z0, S };
+    const topY = y + this.wallH * stack;
+    zone.ceilY = Math.min(zone.ceilY ?? Infinity, topY - 0.45);
+    if (ceiling === 'stone') {
+      const ce = new THREE.Mesh(new THREE.BoxGeometry(w * S + 0.6, 0.3, d * S + 0.6), MAT.stoneDark);
+      ce.position.set(gx, topY + 0.15, gz);
+      zone.add(ce);
+    }
+    return { x0, z0, S, topY, wallH: this.wallH };
   }
 }
 
@@ -297,34 +309,82 @@ export class SkyRig {
   constructor(scene) {
     this.scene = scene;
     this.hemi = new THREE.HemisphereLight(0x8899cc, 0x33241a, 0.5);
+    this.ambient = new THREE.AmbientLight(0xffe0b8, 0.3);
     this.sun = new THREE.DirectionalLight(0xffe9c4, 1.0);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.camera.left = -30; this.sun.shadow.camera.right = 30;
     this.sun.shadow.camera.top = 30; this.sun.shadow.camera.bottom = -30;
     this.sun.shadow.bias = -0.0004;
-    scene.add(this.hemi, this.sun, this.sun.target);
+    scene.add(this.hemi, this.ambient, this.sun, this.sun.target);
     this.weather = 'clear'; // clear|rain
     this.rain = null;
+    // 月亮与星空（户外夜晚）
+    this.moon = new THREE.Group();
+    const moonBall = new THREE.Mesh(new THREE.SphereGeometry(2.4, 20, 16), new THREE.MeshBasicMaterial({ color: 0xf4f0e0 }));
+    const moonGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: (() => {
+        const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128;
+        const c = cv.getContext('2d');
+        const g = c.createRadialGradient(64, 64, 8, 64, 64, 64);
+        g.addColorStop(0, 'rgba(240,238,220,.9)'); g.addColorStop(0.4, 'rgba(190,200,240,.25)'); g.addColorStop(1, 'rgba(190,200,240,0)');
+        c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+        return new THREE.CanvasTexture(cv);
+      })(), transparent: true, depthWrite: false,
+    }));
+    moonGlow.scale.setScalar(14);
+    this.moon.add(moonBall, moonGlow);
+    scene.add(this.moon);
+    const starGeo = new THREE.BufferGeometry();
+    const N = 500, sp = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const a = Math.random() * Math.PI * 2, b = Math.random() * Math.PI * 0.5;
+      const r = 130;
+      sp[i * 3] = Math.cos(a) * Math.cos(b) * r;
+      sp[i * 3 + 1] = Math.sin(b) * r * 0.7 + 6;
+      sp[i * 3 + 2] = Math.sin(a) * Math.cos(b) * r;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    this.stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xdfe8ff, size: 0.5, transparent: true, opacity: 0, sizeAttenuation: true, depthWrite: false }));
+    scene.add(this.stars);
   }
   // hour: 0-24, zone indoor 与否影响强度
   apply(hour, zone, focus) {
     const day = Math.max(0, Math.sin((hour - 6) / 12 * Math.PI)); // 6~18 白天
     const dusk = Math.max(0, 1 - Math.abs(hour - 18.5) / 2.2) + Math.max(0, 1 - Math.abs(hour - 5.5) / 2.2);
     const night = 1 - Math.min(1, day * 1.4 + dusk);
-    const rainDim = this.weather === 'rain' ? 0.55 : 1;
+    const rainDim = this.weather === 'rain' ? 0.6 : 1;
+    const indoor = zone?.indoor;
     const sunCol = new THREE.Color().setHSL(0.09 + 0.03 * day, 0.6, 0.5 + day * 0.25).lerp(new THREE.Color(0xff8a4a), dusk * 0.7);
-    const moonCol = new THREE.Color(0x7a92d8);
+    const moonCol = new THREE.Color(0x8fa8e8);
     this.sun.color.copy(sunCol).lerp(moonCol, night);
-    this.sun.intensity = (0.25 + day * 1.15) * rainDim * (zone?.indoor ? 0.75 : 1) + night * 0.22;
+    this.sun.intensity = (0.3 + day * 1.3) * rainDim * (indoor ? 0.8 : 1) + night * 0.42;
     const ang = ((hour - 6) / 24) * Math.PI * 2;
-    this.sun.position.set(Math.cos(ang) * 40, Math.max(6, Math.sin(ang) * 40 + 10), 22);
+    this.sun.position.set(Math.cos(ang) * 40, Math.max(8, Math.sin(ang) * 40 + 10), 22);
     if (focus) { this.sun.target.position.copy(focus); this.sun.position.add(focus); }
-    this.hemi.intensity = (0.32 + day * 0.35) * rainDim + night * 0.1;
-    this.hemi.color.setHSL(0.6, 0.4, 0.5 + day * 0.2);
-    const bg = new THREE.Color().setHSL(0.62, 0.5, 0.03 + day * 0.32 * rainDim).lerp(new THREE.Color(0xffb27a), dusk * 0.35);
+    this.hemi.intensity = (0.5 + day * 0.5) * rainDim + night * 0.18;
+    this.hemi.color.setHSL(0.6, 0.4, 0.55 + day * 0.15);
+    // 室内暖色填充：烛火学院永不漆黑
+    if (indoor) {
+      this.ambient.color.set(0xffd9a8);
+      this.ambient.intensity = 0.42 + night * 0.3;
+    } else {
+      this.ambient.color.set(0x9db0d8);
+      this.ambient.intensity = 0.12 + day * 0.16 + night * 0.1;
+    }
+    const bg = new THREE.Color().setHSL(0.62, 0.5, 0.045 + day * 0.34 * rainDim).lerp(new THREE.Color(0xffb27a), dusk * 0.4);
     this.scene.background = bg;
-    if (this.scene.fog) this.scene.fog.color.copy(bg.clone().lerp(new THREE.Color(zone?.fogColor ?? 0x0a0d18), zone?.indoor ? 0.85 : 0.4));
+    if (this.scene.fog) this.scene.fog.color.copy(bg.clone().lerp(new THREE.Color(zone?.fogColor ?? 0x0a0d18), indoor ? 0.85 : 0.4));
+    // 月亮星空
+    const showNightSky = !indoor && night > 0.25;
+    this.moon.visible = showNightSky;
+    this.stars.visible = !indoor;
+    this.stars.material.opacity = Math.max(0, night - 0.15) * 0.95;
+    if (showNightSky) {
+      const mang = ang + Math.PI;
+      this.moon.position.set(Math.cos(mang) * 90 + (focus?.x || 0), Math.max(14, Math.sin(mang) * 60 + 20), -70 + (focus?.z || 0));
+    }
+    if (focus) this.stars.position.set(focus.x, 0, focus.z);
     return { day, night, dusk };
   }
   setWeather(w, zone) {
@@ -356,18 +416,18 @@ export class SkyRig {
 
 // 烛光管理：限制实时点光数量，就近激活
 export class CandleRig {
-  constructor(scene, max = 6) {
+  constructor(scene, max = 8) {
     this.scene = scene;
     this.spots = []; // {pos, zone}
     this.lights = [];
     for (let i = 0; i < max; i++) {
-      const l = new THREE.PointLight(0xffb066, 0, 9, 2);
+      const l = new THREE.PointLight(0xffb066, 0, 13, 1.8);
       l.castShadow = false;
       scene.add(l);
       this.lights.push(l);
     }
   }
-  addSpot(zoneId, x, y, z, power = 1.6) { this.spots.push({ zoneId, pos: V3(x, y, z), power }); }
+  addSpot(zoneId, x, y, z, power = 2.2) { this.spots.push({ zoneId, pos: V3(x, y, z), power }); }
   update(t, zoneId, playerPos, nightBoost = 1) {
     const near = this.spots.filter(s => s.zoneId === zoneId)
       .map(s => ({ s, d: s.pos.distanceToSquared(playerPos) }))
