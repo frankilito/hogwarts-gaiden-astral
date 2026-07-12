@@ -67,31 +67,43 @@ export function makeOrrery() {
 }
 export function makeFireplace() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.8), MAT.stone);
-  body.position.y = 1.2; body.castShadow = true;
-  const hole = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.3, 0.85), new THREE.MeshBasicMaterial({ color: 0x0c0805 }));
-  hole.position.set(0, 0.65, 0.01);
-  const mantel = new THREE.Mesh(new THREE.BoxGeometry(3, 0.18, 1), MAT.wood);
-  mantel.position.y = 2.5;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.8, 1.0), MAT.stone);
+  body.position.y = 1.4; body.castShadow = true;
+  const hole = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.5, 1.05), new THREE.MeshBasicMaterial({ color: 0x120a06 }));
+  hole.position.set(0, 0.75, 0.02);
+  const mantel = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.22, 1.25), MAT.wood);
+  mantel.position.y = 2.9;
   g.add(body, hole, mantel);
+  // 柴火
+  for (let i = 0; i < 3; i++) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.1, 6), MAT.wood);
+    log.rotation.z = Math.PI / 2; log.rotation.y = (i - 1) * 0.5;
+    log.position.set(0, 0.16 + i * 0.1, 0.42);
+    g.add(log);
+  }
   // 火焰粒子
-  const N = 40;
+  const N = 80;
   const geo = new THREE.BufferGeometry();
   const pos = new Float32Array(N * 3);
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const fire = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xff9040, size: 0.16, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
-  fire.position.set(0, 0.25, 0.25);
-  const seeds = Array.from({ length: N }, () => ({ x: (Math.random() - .5) * 1.1, y: Math.random(), z: (Math.random() - .5) * .3, s: .5 + Math.random() }));
+  const fire = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xff9040, size: 0.3, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  fire.position.set(0, 0.3, 0.45);
+  fire.frustumCulled = false;
+  const seeds = Array.from({ length: N }, () => ({ x: (Math.random() - .5) * 1.4, y: Math.random(), z: (Math.random() - .5) * .35, s: .5 + Math.random() }));
   fire.userData.update = (t) => {
     for (let i = 0; i < N; i++) {
       const s = seeds[i];
-      const y = ((t * s.s * 0.5 + s.y) % 1);
-      pos[i * 3] = s.x * (1 - y * 0.6); pos[i * 3 + 1] = y * 1.2; pos[i * 3 + 2] = s.z;
+      const y = ((t * s.s * 0.55 + s.y) % 1);
+      pos[i * 3] = s.x * (1 - y * 0.7); pos[i * 3 + 1] = y * 1.5; pos[i * 3 + 2] = s.z;
     }
     geo.attributes.position.needsUpdate = true;
   };
   g.add(fire);
-  g.userData.update = fire.userData.update;
+  // 火光
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.4), new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glow.position.set(0, 0.75, 0.53);
+  g.add(glow);
+  g.userData.update = (t) => { fire.userData.update(t); glow.material.opacity = 0.28 + Math.sin(t * 9) * 0.1; };
   return g;
 }
 export function makeMoonflower() {
@@ -389,6 +401,26 @@ export async function buildZones(B, lib, candleRig) {
     z.blockRect(-3.4, -6.4, 3.4, -4.2);
     await B.place(z, 'furniture', 'shelf_A_big', -12.5, 0, -3, PI / 2);
     await B.place(z, 'furniture', 'cabinet_medium', -12.5, 0, 2, PI / 2);
+    // 陈设丰富化
+    await B.place(z, 'furniture', 'shelf_B_large_decorated', -8, 0, -8.8, 0);
+    await B.place(z, 'furniture', 'shelf_B_large', 8, 0, -8.8, 0);
+    await B.place(z, 'furniture', 'rug_rectangle_stripes_A', 0, 0.02, 0, 0, 2.2);
+    await B.place(z, 'furniture', 'table_medium', -7, 0, 3, 0.3);
+    await B.place(z, 'furniture', 'chair_A', -8.2, 0, 3, PI / 2);
+    await B.place(z, 'furniture', 'chair_B', -5.8, 0, 3.2, -PI / 2);
+    await B.place(z, 'items', 'spellbook_open.gltf', -7, 1.0, 3, 0.7);
+    await B.place(z, 'furniture', 'lamp_standing', -12, 0, -8.5, 0);
+    await B.place(z, 'furniture', 'lamp_standing', 12, 0, -8.5, 0);
+    await B.place(z, 'furniture', 'pictureframe_large_A', -6, 2.8, -9.7, 0);
+    await B.place(z, 'furniture', 'pictureframe_medium', 6, 2.8, -9.7, 0);
+    await B.place(z, 'dungeon', 'banner_patternB_red', -3.5, 4.6, -9.75, 0, 1.3);
+    await B.place(z, 'dungeon', 'banner_patternB_red', 3.5, 4.6, -9.75, 0, 1.3);
+    await B.place(z, 'dungeon', 'trunk_medium_A', 12.4, 0, 4.5, -PI / 2);
+    candleRig.addSpot('common', -7, 1.6, 3, 1.4);
+    candleRig.addSpot('common', -12, 1.8, -8.5, 1.5);
+    candleRig.addSpot('common', 12, 1.8, -8.5, 1.5);
+    z.blockRect(-9, 2.2, -5, 3.9);
+    z.blockRect(-13, -9.6, 13, -8.2);
     // 公告板（社团/集市）
     await B.place(z, 'dungeon', 'sword_shield', 12.6, 1.6, -3, -PI / 2);
     z.interact(11.6, -3, '布告栏（社团·集市）', 'board', null, 2.2);
@@ -542,14 +574,14 @@ export async function buildZones(B, lib, candleRig) {
       z.update((t) => { crown.position.x = tx + Math.sin(t * 0.7 + crown.userData.sway) * 0.12; });
     }
     await B.place(z, 'halloween', 'bench', -11, 0, 5, PI / 2);
-    await B.place(z, 'halloween', 'post_lantern', 0, 0, -6, 0);
+    await B.place(z, 'halloween', 'post_lantern', 4.5, 0, -6, 0);
     await B.place(z, 'halloween', 'post_lantern', -6, 0, 6, 0);
-    candleRig.addSpot('yard', 0, 2.6, -6, 1.6);
+    candleRig.addSpot('yard', 4.5, 2.6, -6, 1.6);
     candleRig.addSpot('yard', -6, 2.6, 6, 1.6);
     // 井
     const well = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, 1, 10, 1, true), MAT.stone);
     well.position.set(-2, 0.5, 10); z.add(well); z.block(-2, 10, 1.4);
-    z.spot('spawn', 0, 0, 0);
+    z.spot('spawn', -2, 0, 2.5);
     z.spot('fromHall', 0, 0, -10.5);
     z.spot('fromGreen', -13, 0, 10);
     z.spot('teach', -5, 0, -7);
@@ -583,7 +615,7 @@ export async function buildZones(B, lib, candleRig) {
     }
     // 蛛网 + 蛛巢
     for (const [wx, wz] of [[-12, -10], [13, -6], [-8, 8]]) {
-      const web = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.22, side: THREE.DoubleSide }));
+      const web = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ color: 0x9aa4b8, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false }));
       web.position.set(wx, 1.4, wz); web.rotation.y = rng() * 2; z.add(web);
     }
     // 月光花丛（夜间采集）

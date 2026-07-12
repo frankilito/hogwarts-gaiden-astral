@@ -115,18 +115,24 @@ export class Actor {
     this.mixer = new THREE.AnimationMixer(obj);
     for (const clip of anims) this.actions[clip.name] = this.mixer.clipAction(clip);
     this.play('Idle');
-    // 骨骼引用
+    // 骨骼引用（KayKit 命名：.l/.r 后缀，handslot 挂点）
+    this.builtin = {};
     obj.traverse(o => {
       const n = (o.name || '').toLowerCase();
       if (o.isBone) {
-        if (n.includes('hand') && (n.includes('r') || n.endsWith('r'))) this.handR = this.handR || o;
-        if (n.includes('hand') && (n.includes('l') || n.endsWith('l'))) this.handL = this.handL || o;
-        if (n === 'head' || n.includes('head')) this.head = this.head || o;
-        if (n.includes('shoulder') || n.includes('upperarm') || n.includes('arm')) {
-          if ((n.includes('l') && !this.shL)) this.shL = o;
-          if ((n.includes('r') && !this.shR)) this.shR = o;
-        }
-        if (n.includes('torso') || n.includes('spine') || n.includes('body')) this.torso = this.torso || o;
+        // GLTFLoader 会剥掉命名里的点号：upperarm.l → upperarml
+        const side = n.endsWith('l') ? 'l' : (n.endsWith('r') ? 'r' : '');
+        if (n.startsWith('handslot')) { if (side === 'r') this.handR = o; else if (side === 'l') this.handL = o; }
+        else if (n.startsWith('hand') && side === 'r' && !this.handR) this.handR = o;
+        else if (n.startsWith('hand') && side === 'l' && !this.handL) this.handL = o;
+        if (n === 'head') this.head = o;
+        if (n.startsWith('upperarm') || n.startsWith('shoulder')) { if (side === 'l') this.shL = this.shL || o; else if (side === 'r') this.shR = this.shR || o; }
+        if (!this.torso && (n === 'chest' || n === 'spine' || n === 'torso')) this.torso = o;
+      } else if (/^(1h_|2h_|spellbook|crossbow|shield|sword|axe|dagger|arrow|quiver|smokebomb|mug|blade|staff)/.test(n) || n.endsWith('_cape')) {
+        // 内置手持道具默认隐藏，按需开启
+        o.visible = false;
+        if (n === 'spellbook_open') this.builtin.book = o;
+        if (n === '1h_wand') this.builtin.wand = o;
       }
     });
     if (ghost) this.makeGhost();
@@ -194,10 +200,10 @@ export class Actor {
     if (this.cape && this.shL && this.shR) {
       const aL = new THREE.Vector3(), aR = new THREE.Vector3();
       this.shL.getWorldPosition(aL); this.shR.getWorldPosition(aR);
-      // 后移一点
-      const back = new THREE.Vector3(0, 0, -0.16).applyQuaternion(this.root.quaternion);
+      // 后移出体表
+      const back = new THREE.Vector3(0, 0, -0.34).applyQuaternion(this.root.quaternion);
       aL.add(back); aR.add(back);
-      aL.y += 0.05; aR.y += 0.05;
+      aL.y += 0.12; aR.y += 0.12;
       this.cape.step(Math.min(dt, 0.033), aL, aR, this.speed * 0.5 + 0.4);
     }
   }
@@ -312,7 +318,8 @@ export class Player {
     this.actor.setBase('Idle');
   }
   readBook(on) {
-    if (this.actor.book) this.actor.book.visible = on;
+    const b = this.actor.builtin?.book || this.actor.book;
+    if (b) b.visible = on;
   }
   castAnim(kind = 'shoot') {
     const m = { shoot: 'Spellcast_Shoot', raise: 'Spellcast_Raise', long: 'Spellcast_Long', channel: 'Spellcasting' };

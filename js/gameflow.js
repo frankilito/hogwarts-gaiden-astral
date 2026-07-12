@@ -214,10 +214,12 @@ export function installGameflow(g) {
       levit_book: () => {
         if (!gs.knownSpells.includes('levit')) return g.ui.toast('书太高了。也许悬浮咒能帮上忙（上魔咒课学习）', true);
         const st = gs.quests.m3;
-        if (!st || st.done || L.questById('m3').steps[st.step]?.ev !== 'levit:book') {
+        const stepEv = st && !st.done ? L.questById('m3').steps[st.step]?.ev : null;
+        if (!['sneak:library', 'levit:book'].includes(stepEv)) {
           return g.ui.toast('一本厚重的古书。现在不需要它。');
         }
         if (!L.isCurfew(gs) && L.phaseOf(gs.hour).id !== 'evening') return g.ui.toast('白天禁书区有管理员盯着……夜里再来。', true);
+        g.fireQuestEvent('sneak:library');
         const book = ZONES.library.bookTarget;
         g.player.castAnim('raise');
         g.audio.sfx('cast');
@@ -233,7 +235,6 @@ export function installGameflow(g) {
             book.visible = false;
             g.ui.toast('📖 取得《星轨编年史·三》');
             g.fireQuestEvent('levit:book');
-            g.fireQuestEvent('sneak:library');
           }
         }, 50);
       },

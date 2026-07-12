@@ -403,14 +403,15 @@ export class UI {
       $('dlg-choices').innerHTML = '';
       $('dlg-next').style.visibility = 'hidden';
       this._talking = true;
+      const fullText = node.t || (node.choice ? '（做出你的选择）' : '……');
       await new Promise(res => {
         let i = 0;
         const T = setInterval(() => {
-          txt.textContent = node.t.slice(0, ++i);
+          txt.textContent = fullText.slice(0, ++i);
           if (i % 3 === 0) this.audio.sfx('write');
-          if (i >= node.t.length) { clearInterval(T); res(); }
+          if (i >= fullText.length) { clearInterval(T); res(); }
         }, 26);
-        this._skipType = () => { clearInterval(T); txt.textContent = node.t; res(); };
+        this._skipType = () => { clearInterval(T); txt.textContent = fullText; res(); };
       });
       this._talking = false;
       if (node.choice) {
@@ -421,6 +422,7 @@ export class UI {
             b.onclick = () => { this.audio.sfx('ui'); res(c); };
             $('dlg-choices').appendChild(b);
           }
+          if (Q.has('autotest')) setTimeout(() => res(node.choice[0]), 100);
         });
         $('dlg-choices').innerHTML = '';
         if (sel.eff) onEffect?.(sel.eff);

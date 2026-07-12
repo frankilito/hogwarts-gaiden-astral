@@ -755,6 +755,71 @@ class Game {
     // 幽灵/画像/漂浮物冒烟
     await this.switchZone('library', 'spawn');
     T('图书馆画像存在', (ZONES.library.portraitList || []).length > 0);
+    T('披风布料已模拟', this.player.actor.cape?.inited === true);
+    // ===== 主线全链路 m2→m7 =====
+    // m2 夜半星轨
+    this.gs.hour = 23; this.gs.minute = 0;
+    await this.switchZone('astro', 'spawn');
+    T('m2 夜登天文塔', this.gs.quests.m2?.step >= 1);
+    await this.talkTo('stella');
+    await this.doInteract({ action: 'stargaze' });
+    await this.talkTo('orion');
+    T('m2 完成', !!this.gs.quests.m2?.done);
+    // m3 禁书区（先白天找悦读夫人，再夜潜）
+    this.gs.hour = 10;
+    await this.talkTo('ladyread');
+    this.gs.hour = 23;
+    await this.switchZone('library', 'spawn');
+    L.unlockSpell(this.gs, 'levit');
+    await this.doInteract({ action: 'levit_book' });
+    await new Promise(r => setTimeout(r, 1400));
+    await this.talkTo('orion');
+    T('m3 完成', !!this.gs.quests.m3?.done);
+    // m4 血伯爵
+    await this.talkTo('bloodcount');
+    L.addItem(this.gs, 'moonflower', 3);
+    this.fireQuestEvent('collect:moonflower:3');
+    L.addItem(this.gs, 'glowcap', 1); L.addItem(this.gs, 'spidersilk', 2);
+    const nb = L.brewPotion(this.gs, 'potion_night', ['heat', 'grind', 'stir_r']);
+    T('夜视药剂酿造', nb.ok);
+    this.fireQuestEvent('brew:potion_night');
+    await this.talkTo('bloodcount');
+    T('m4 完成并获得钥匙', !!this.gs.quests.m4?.done && L.hasItem(this.gs, 'old_key'));
+    // m5 密室之门
+    this.gs.hour = 23;
+    await this.switchZone('chamber', 'spawn');
+    T('m5 夜抵密室', this.gs.quests.m5?.step >= 1);
+    await this.doInteract({ action: 'rune_lock' });
+    await new Promise(r => setTimeout(r, 900));
+    T('m5 完成且密室开启', !!this.gs.quests.m5?.done && !!this.gs.flags.chamberOpen);
+    T('m5 解锁星门咒', this.gs.knownSpells.includes('portal'));
+    // m6 星轨迷宫（floor1 → floor2 → boss3 → 辉石）
+    await this.switchZone('dungeon', 'spawn');
+    T('m6 第一层事件', this.gs.quests.m6?.step >= 1);
+    await this.doInteract({ action: 'dungeon_down' });
+    T('m6 第二层事件', this.gs.quests.m6?.step >= 2);
+    if (this.dungeonGate) this.dungeonGate.open = true;
+    await this.doInteract({ action: 'dungeon_down' });
+    T('Boss 层就位', !!this.dungeonBoss);
+    this.dungeonBoss.takeDamage(99999, this.player.pos);
+    await new Promise(r => setTimeout(r, 500));
+    T('m6 Boss 击杀', this.gs.quests.m6?.step >= 3);
+    this.doGemPick?.();
+    T('m6 完成并习得辉光射线', !!this.gs.quests.m6?.done && this.gs.knownSpells.includes('beam'));
+    // m7 封印修复
+    await this.switchZone('common', 'spawn');
+    await this.talkTo('astron');
+    this.gs.hour = 19; this.gs.minute = 0;
+    await this.switchZone('astro', 'spawn');
+    T('m7 黄昏仪式就绪', this.gs.quests.m7?.step >= 2);
+    await this.runRitual();
+    T('m7 主线完成', !!this.gs.quests.m7?.done);
+    T('获得称号', this.gs.titles.includes('星轨守望者'));
+    T('结局回到大厅盛宴', this.zoneId === 'hall');
+    // 收尾校验
+    this.save();
+    const fin = L.loadGame(localStorage);
+    T('终局存档完整', fin && fin.quests.m7?.done && fin.knownSpells.includes('beam'));
     const fails = logs.filter(l => l.startsWith('✗'));
     window.__testSummary = `${logs.length - fails.length}/${logs.length} 通过` + (fails.length ? ' | 失败: ' + fails.join('; ') : '');
     window.__testDone = true;
@@ -763,6 +828,7 @@ class Game {
 }
 
 const game = new Game();
+addEventListener('error', (e) => console.log('[hgw] ERRSTACK', (e.error?.stack || e.message || '').split('\n').slice(0, 4).join(' | ')));
 game.boot().catch(e => {
   console.error('[hgw] boot fail', e);
   $('loadtext').textContent = '启动失败: ' + e.message;
