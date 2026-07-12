@@ -136,6 +136,18 @@ export class Actor {
       }
     });
     if (ghost) this.makeGhost();
+    // 头发动态：发尾弹簧摆（挂头骨，惯性滞后）
+    if (!ghost && this.head) {
+      const hairCol = [0x3a2a1a, 0x5a3a20, 0x1e1a16, 0x6a5535, 0x8a3a2a][Math.abs((tint || 0) % 5)];
+      const geo = new THREE.ConeGeometry(0.075, 0.46, 6);
+      geo.translate(0, -0.2, 0);
+      this.hairTail = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: hairCol, roughness: 0.85 }));
+      this.hairTail.position.set(0, 0.14, -0.16);
+      this.hairTail.castShadow = false;
+      this.head.add(this.hairTail);
+      this._hairPrev = new THREE.Vector3();
+      this._hairSw = { x: 0, z: 0, vx: 0, vz: 0 };
+    }
     if (capeColor != null) {
       this.cape = new Cape(capeColor);
       // 披风加到场景根（世界坐标模拟），由外部 add
@@ -195,6 +207,21 @@ export class Actor {
     if (this.emote.visible && t > this.emote.userData.until) this.emote.visible = false;
     if (this.ghost && this.model) {
       this.model.position.y = 0.35 + Math.sin(t * 1.6 + this.root.position.x) * 0.12;
+    }
+    // 发尾弹簧
+    if (this.hairTail && this.head) {
+      const hp = new THREE.Vector3();
+      this.head.getWorldPosition(hp);
+      const vel = hp.clone().sub(this._hairPrev).divideScalar(Math.max(dt, 0.001));
+      this._hairPrev.copy(hp);
+      const local = vel.applyQuaternion(this.root.quaternion.clone().invert());
+      const S = this._hairSw, k = 26, damp = 7;
+      S.vx += (-local.z * 0.16 - S.x * k - S.vx * damp) * dt;
+      S.vz += (local.x * 0.16 - S.z * k - S.vz * damp) * dt;
+      S.x = Math.max(-0.9, Math.min(0.9, S.x + S.vx * dt));
+      S.z = Math.max(-0.9, Math.min(0.9, S.z + S.vz * dt));
+      this.hairTail.rotation.x = -0.5 + S.x + Math.sin(t * 1.8 + this.root.position.x) * 0.05;
+      this.hairTail.rotation.z = S.z;
     }
     // 披风锚点
     if (this.cape && this.shL && this.shR) {
