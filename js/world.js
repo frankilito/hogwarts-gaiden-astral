@@ -61,6 +61,7 @@ export class Zone {
     this.group.visible = false;
     this.bounds = opts.bounds || [-20, -20, 20, 20]; // 可行走矩形 x1,z1,x2,z2
     this.obstacles = [];   // {x,z,r} 圆形阻挡 或 {x1,z1,x2,z2}
+    this.plates = [];      // 可站立台面 {x,z,r,h}
     this.portals = [];     // {x,z,r,label,to,spot,cond}
     this.interacts = [];   // {x,z,r,label,action,id}
     this.spots = {};       // name -> V3 NPC/玩家锚点
@@ -78,6 +79,15 @@ export class Zone {
   interact(x, z, label, action, id = null, r = 2.0) { this.interacts.push({ x, z, r, label, action, id }); }
   block(x, z, r) { this.obstacles.push({ x, z, r }); }
   blockRect(x1, z1, x2, z2) { this.obstacles.push({ x1, z1, x2, z2 }); }
+  plate(x, z, r, h) { this.plates.push({ x, z, r, h }); }
+  groundY(x, z) {
+    let h = 0;
+    for (const p of this.plates) {
+      const dx = x - p.x, dz = z - p.z;
+      if (dx * dx + dz * dz < p.r * p.r) h = Math.max(h, p.h);
+    }
+    return h;
+  }
   update(fn) { this.updaters.push(fn); }
   clampMove(pos, r = 0.5) {
     const [x1, z1, x2, z2] = this.bounds;
@@ -119,6 +129,18 @@ export class Builder {
     o.rotation.y = ry;
     if (scale !== 1) o.scale.setScalar(scale);
     zone.add(o);
+    // 自动碰撞：落地、够高、占地合理的摆件生成 AABB 阻挡
+    // 规则排除：旗帜/壁灯等悬挂物(min.y高)、地毯地砖(太矮)、大树冠(占地过大)、桌上小物
+    if (opts.solid !== false) {
+      o.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(o);
+      const w = box.max.x - box.min.x, d = box.max.z - box.min.z, h = box.max.y - box.min.y;
+      const fp = Math.max(w, d);
+      if (opts.solid === true || (box.max.y > 0.55 && box.min.y < 1.15 && h > 0.55 && fp < 4.6 && fp > 0.12)) {
+        const shX = Math.min(0.14, w * 0.12), shZ = Math.min(0.14, d * 0.12);
+        zone.blockRect(box.min.x + shX, box.min.z + shZ, box.max.x - shX, box.max.z - shZ);
+      }
+    }
     return o;
   }
   // 方形石室：w×d 格墙，带窗/门洞；stack 层数；ceiling: 'stone'|'none'

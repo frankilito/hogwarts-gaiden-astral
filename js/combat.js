@@ -122,6 +122,10 @@ export class Enemy {
       return;
     }
     const p = this.actor.root.position;
+    if (this.levit <= 0) {
+      const gy = zone?.groundY ? zone.groundY(p.x, p.z) : 0;
+      p.y += (gy - p.y) * Math.min(1, dt * 10);
+    }
     const dist = Math.hypot(playerPos.x - p.x, playerPos.z - p.z);
     this.atkCd -= dt;
     const ai = this.def.ai;

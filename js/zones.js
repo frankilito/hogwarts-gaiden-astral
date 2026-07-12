@@ -440,7 +440,7 @@ export async function buildZones(B, lib, candleRig) {
 
   // ============ 温室 ============
   {
-    const z = new Zone('greenhouse', '三号温室', { bounds: [-12, -9, 12, 9], fog: 0x12200f, fogD: 0.014, indoor: true });
+    const z = new Zone('greenhouse', '三号温室', { bounds: [-11.6, -8.6, 11.6, 8.6], fog: 0x12200f, fogD: 0.014, indoor: true });
     // 玻璃屋：石基座 + 玻璃墙/顶
     const base = new THREE.Mesh(new THREE.BoxGeometry(25, 0.4, 19), MAT.stoneDark);
     base.position.y = -0.2; base.receiveShadow = true; z.add(base);
@@ -554,6 +554,7 @@ export async function buildZones(B, lib, candleRig) {
     const ringGlow = new THREE.Mesh(new THREE.TorusGeometry(5.0, 0.05, 8, 40), new THREE.MeshBasicMaterial({ color: 0xd8b45a }));
     ringGlow.rotation.x = PI / 2; ringGlow.position.set(7, 0.52, 5); z.add(ringGlow);
     z.duelRing = { x: 7, z: 5, r: 5 };
+    z.plate(7, 5, 5.3, 0.5); // 可站上台面
     z.interact(7, -0.2, '决斗台（挑战/社团）', 'duel_ring', null, 2.6);
     // 训练假人×3
     z.dummies = [];

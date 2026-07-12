@@ -283,13 +283,13 @@ export class Player {
       A.update(dt, t);
       return;
     }
-    // 相机相对移动
+    // 相机相对移动（W=远离相机的前方）
     let mx = 0, mz = 0;
     if (input.enabled) {
-      if (input.down('KeyW')) mz -= 1;
-      if (input.down('KeyS')) mz += 1;
-      if (input.down('KeyA')) mx -= 1;
-      if (input.down('KeyD')) mx += 1;
+      if (input.down('KeyW')) mz += 1;
+      if (input.down('KeyS')) mz -= 1;
+      if (input.down('KeyA')) mx += 1;
+      if (input.down('KeyD')) mx -= 1;
     }
     const want = (mx || mz) && this.dodgeT <= 0;
     this.running = want && input.down('ShiftLeft');
@@ -313,6 +313,9 @@ export class Player {
       A.setBase('Idle');
     }
     zone?.clampMove(this.pos, 0.45);
+    // 台面高度（决斗台等）
+    const gy = zone?.groundY ? zone.groundY(this.pos.x, this.pos.z) : 0;
+    this.pos.y += (gy - this.pos.y) * Math.min(1, dt * 12);
     A.root.position.copy(this.pos);
     A.faceUpdate(dt);
     this._cam(dt, input);
@@ -321,14 +324,14 @@ export class Player {
   dodge(input) {
     if (this.dodgeT > 0 || this.sitting) return false;
     let mx = 0, mz = 0;
-    if (input.down('KeyW')) mz -= 1;
-    if (input.down('KeyS')) mz += 1;
-    if (input.down('KeyA')) mx -= 1;
-    if (input.down('KeyD')) mx += 1;
+    if (input.down('KeyW')) mz += 1;
+    if (input.down('KeyS')) mz -= 1;
+    if (input.down('KeyA')) mx += 1;
+    if (input.down('KeyD')) mx -= 1;
     const ang = this.camYaw + (mx || mz ? Math.atan2(mx, mz) : Math.PI);
     this.dodgeDir = { x: Math.sin(ang), z: Math.cos(ang) };
     this.dodgeT = 0.42;
-    this.actor.play(mz > 0 ? 'Dodge_Backward' : 'Dodge_Forward', { once: true, fade: 0.08 });
+    this.actor.play(mz < 0 ? 'Dodge_Backward' : 'Dodge_Forward', { once: true, fade: 0.08 });
     return true;
   }
   sit(spotPos, anim = 'Sit_Chair_Idle') {
@@ -443,6 +446,9 @@ export class NPCManager {
       const { actor, npc, zone } = rec;
       actor.update(dt, t);
       actor.faceUpdate(dt);
+      const rp = actor.root.position;
+      const gy = zone?.groundY ? zone.groundY(rp.x, rp.z) : 0;
+      if (!npc.ghost) rp.y += (gy - rp.y) * Math.min(1, dt * 10);
       if (rec.act === 'sit') continue;
       // 简单游走/教学行为
       rec.wanderT -= dt;
@@ -536,6 +542,8 @@ export class Companion {
       actor.speed = 0;
       if (Math.random() < dt * 0.1) actor.lookAt(pp.x, pp.z);
     }
+    const gy = zone?.groundY ? zone.groundY(p.x, p.z) : 0;
+    p.y += (gy - p.y) * Math.min(1, dt * 10);
     this.rec.cd -= dt;
     actor.update(dt, t);
     actor.faceUpdate(dt);

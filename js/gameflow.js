@@ -682,6 +682,7 @@ export function installGameflow(g) {
         c.position.set(cx * S, 0, cy * S);
         z.group.add(c);
       });
+      z.blockRect(cx * S - 0.65, cy * S - 0.5, cx * S + 0.65, cy * S + 0.5);
       z.interact(cx * S, cy * S, '开启宝箱', 'dungeon_chest', i, 2);
     });
     // 萤光菇

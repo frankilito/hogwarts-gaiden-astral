@@ -756,6 +756,27 @@ class Game {
     await this.switchZone('library', 'spawn');
     T('图书馆画像存在', (ZONES.library.portraitList || []).length > 0);
     T('披风布料已模拟', this.player.actor.cape?.inited === true);
+    // ===== 移动方向 / 碰撞 / 台面 =====
+    await this.switchZone('hall', 'spawn');
+    this.player.camYaw = Math.PI;
+    this.player.teleport(0, 8);
+    this.input.keys.add('KeyW');
+    await new Promise(r => setTimeout(r, 500));
+    this.input.keys.delete('KeyW');
+    T('W 键朝相机前方移动', this.player.pos.z < 7.2);
+    this.player.teleport(-8, -2);
+    this.player.camYaw = Math.PI;
+    this.input.keys.add('KeyW');
+    await new Promise(r => setTimeout(r, 1200));
+    this.input.keys.delete('KeyW');
+    T('长桌碰撞阻挡不穿模', this.player.pos.z > -4.2);
+    await this.switchZone('yard', 'spawn');
+    this.player.teleport(7, 5);
+    await new Promise(r => setTimeout(r, 450));
+    T('决斗台可站上台面', this.player.pos.y > 0.3);
+    this.player.teleport(-2, 2.5);
+    await new Promise(r => setTimeout(r, 450));
+    T('离开台面回到地面', this.player.pos.y < 0.15);
     // ===== 主线全链路 m2→m7 =====
     // m2 夜半星轨
     this.gs.hour = 23; this.gs.minute = 0;
